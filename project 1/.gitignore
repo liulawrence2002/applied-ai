@@ -1,0 +1,22 @@
+# Large data files
+data/archive/loan.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Optuna / ML artifacts
+*.db
+optuna_*.sqlite3
+
+# Claude local-only settings (keep shared settings.json if you add one)
+.claude/settings.local.json
