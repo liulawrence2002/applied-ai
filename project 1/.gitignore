@@ -1,4 +1,6 @@
 # Large data files
+true data/
+achive_data/
 data/archive/loan.csv
 
 # Python
@@ -15,8 +17,10 @@ Thumbs.db
 .idea/
 
 # Optuna / ML artifacts
+outputs/
 *.db
 optuna_*.sqlite3
 
 # Claude local-only settings (keep shared settings.json if you add one)
+.claude/
 .claude/settings.local.json

@@ -1,2 +1,11 @@
 /project_1.ipynb
 /week 1
+
+# Project 1 local data and generated artifacts
+project 1/true data/
+project 1/achive_data/
+project 1/data/archive/loan.csv
+project 1/outputs/
+project 1/.venv/
+project 1/venv/
+project 1/.claude/

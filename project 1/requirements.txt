@@ -1,0 +1,16 @@
+polars>=1.20
+xgboost>=3.1
+lightgbm>=4.0
+catboost>=1.2
+optuna>=3.6
+optuna-integration[xgboost]>=3.6
+pandas
+numpy
+scikit-learn
+shap
+matplotlib
+seaborn
+missingno
+scipy
+jupyter
+openpyxl
