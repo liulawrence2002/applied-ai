@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jupyter Notebook — generated with runcell</title>
+    <meta name="description" content="Exported with runcell — convert .ipynb notebooks to HTML or PDF anytime at runcell.dev." />
+    <meta name="generator" content="runcell" />
+    <style>
+        :root {
+            --jp-code-font-family: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+            --jp-content-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            --jp-cell-prompt-width: 64px;
+            --jp-input-prompt-color: #307fc1;
+            --jp-output-prompt-color: #bf5b3d;
+            --jp-cell-input-bg: #f7f7f7;
+            --jp-layout-color0: #ffffff;
+            --jp-layout-color1: #f7f7f7;
+            --jp-border-color1: #e0e0e0;
+            --jp-content-font-color0: #000000;
+            --jp-content-font-color1: #333333;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--jp-content-font-family);
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--jp-content-font-color0);
+            background-color: var(--jp-layout-color0);
+            margin: 0;
+            padding: 0;
+        }
+
+        .notebook-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Cell structure */
+        .cell {
+            display: flex;
+            flex-direction: row;
+            margin-bottom: 12px;
+            position: relative;
+        }
+
+        .cell-prompt {
+            min-width: var(--jp-cell-prompt-width);
+            width: var(--jp-cell-prompt-width);
+            font-family: var(--jp-code-font-family);
+            font-size: 12px;
+            padding: 10px 8px 10px 0;
+            text-align: right;
+            flex-shrink: 0;
+            user-select: none;
+        }
+
+        .cell-content {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        /* Input prompt styling - Jupyter blue */
+        .input-prompt {
+            color: var(--jp-input-prompt-color);
+            font-weight: bold;
+        }
+
+        /* Output prompt styling - Jupyter red/orange */
+        .output-prompt {
+            color: var(--jp-output-prompt-color);
+            font-weight: bold;
+        }
+
+        /* Code cell input area */
+        .input-area {
+            background-color: var(--jp-cell-input-bg);
+            border: 1px solid var(--jp-border-color1);
+            border-radius: 2px;
+            padding: 8px 12px;
+            overflow-x: auto;
+        }
+
+        .input-area pre {
+            margin: 0;
+            font-family: var(--jp-code-font-family);
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Output area */
+        .output-area {
+            margin-top: 0;
+        }
+
+        .output-wrapper {
+            display: flex;
+            flex-direction: row;
+            margin-top: 4px;
+        }
+
+        .output-content {
+            flex: 1;
+            min-width: 0;
+            padding: 8px 0;
+        }
+
+        .output-content pre {
+            margin: 0;
+            font-family: var(--jp-code-font-family);
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Stream output (stdout/stderr) */
+        .output-stream {
+            font-family: var(--jp-code-font-family);
+            font-size: 13px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .output-stderr {
+            background-color: #fdd;
+            padding: 8px 12px;
+            border-radius: 2px;
+        }
+
+        /* Execute result / display data */
+        .output-result {
+            padding: 4px 0;
+        }
+
+        .output-result pre {
+            margin: 0;
+            font-family: var(--jp-code-font-family);
+            font-size: 13px;
+        }
+
+        /* Image output */
+        .output-image {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* HTML output (DataFrames, etc.) */
+        .output-html {
+            overflow-x: auto;
+        }
+
+        .output-html table {
+            border-collapse: collapse;
+            font-size: 13px;
+            font-family: var(--jp-content-font-family);
+        }
+
+        .output-html table th,
+        .output-html table td {
+            border: 1px solid #ddd;
+            padding: 6px 10px;
+            text-align: left;
+        }
+
+        .output-html table th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+
+        .output-html table tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+
+        /* Error output */
+        .output-error {
+            background-color: #fff0f0;
+            padding: 8px 12px;
+            border-radius: 2px;
+            font-family: var(--jp-code-font-family);
+            font-size: 13px;
+            white-space: pre-wrap;
+        }
+
+        /* Markdown cell styling */
+        .markdown-cell {
+            padding: 10px 0;
+        }
+
+        .markdown-cell h1 {
+            font-size: 2em;
+            font-weight: 600;
+            margin: 0.67em 0;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--jp-border-color1);
+        }
+
+        .markdown-cell h2 {
+            font-size: 1.5em;
+            font-weight: 600;
+            margin: 0.83em 0;
+            padding-bottom: 0.3em;
+            border-bottom: 1px solid var(--jp-border-color1);
+        }
+
+        .markdown-cell h3 {
+            font-size: 1.25em;
+            font-weight: 600;
+            margin: 1em 0;
+        }
+
+        .markdown-cell h4 {
+            font-size: 1em;
+            font-weight: 600;
+            margin: 1.33em 0;
+        }
+
+        .markdown-cell h5 {
+            font-size: 0.875em;
+            font-weight: 600;
+            margin: 1.67em 0;
+        }
+
+        .markdown-cell h6 {
+            font-size: 0.85em;
+            font-weight: 600;
+            margin: 2.33em 0;
+            color: #6a737d;
+        }
+
+        .markdown-cell p {
+            margin: 0 0 16px 0;
+            line-height: 1.6;
+        }
+
+        .markdown-cell code {
+            font-family: var(--jp-code-font-family);
+            font-size: 85%;
+            background-color: rgba(27, 31, 35, 0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+        }
+
+        .markdown-cell pre {
+            background-color: var(--jp-cell-input-bg);
+            border: 1px solid var(--jp-border-color1);
+            border-radius: 3px;
+            padding: 16px;
+            overflow-x: auto;
+            font-size: 85%;
+            line-height: 1.45;
+        }
+
+        .markdown-cell pre code {
+            background-color: transparent;
+            padding: 0;
+            border-radius: 0;
+            font-size: 100%;
+        }
+
+        .markdown-cell blockquote {
+            margin: 0 0 16px 0;
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 4px solid #dfe2e5;
+        }
+
+        .markdown-cell ul,
+        .markdown-cell ol {
+            margin: 0 0 16px 0;
+            padding-left: 2em;
+        }
+
+        .markdown-cell li {
+            margin: 0.25em 0;
+        }
+
+        .markdown-cell a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        .markdown-cell a:hover {
+            text-decoration: underline;
+        }
+
+        .markdown-cell hr {
+            border: 0;
+            border-top: 1px solid var(--jp-border-color1);
+            margin: 24px 0;
+        }
+
+        .markdown-cell img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .markdown-cell table {
+            border-collapse: collapse;
+            margin: 0 0 16px 0;
+        }
+
+        .markdown-cell table th,
+        .markdown-cell table td {
+            border: 1px solid #dfe2e5;
+            padding: 6px 13px;
+        }
+
+        .markdown-cell table th {
+            font-weight: 600;
+            background-color: #f6f8fa;
+        }
+
+        .markdown-cell table tr:nth-child(2n) {
+            background-color: #f6f8fa;
+        }
+
+        /* Raw cell styling */
+        .raw-cell {
+            background-color: var(--jp-layout-color1);
+            border: 1px solid var(--jp-border-color1);
+            border-radius: 2px;
+            padding: 8px 12px;
+            font-family: var(--jp-code-font-family);
+            font-size: 13px;
+            white-space: pre-wrap;
+        }
+
+        /* Empty prompt placeholder */
+        .prompt-empty {
+            color: transparent;
+        }
+
+        .export-footer {
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid var(--jp-border-color1);
+            color: #555;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .export-footer a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+
+        .export-footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="notebook-container">
+        <div class="cell cell-code">
+            <div class="cell-prompt input-prompt">In [2]:</div>
+            <div class="cell-content">
+                <div class="input-area"><pre>
+import os
+import numpy as np
+import pandas as pd
+
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
+from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor, HistGradientBoostingRegressor
+from sklearn.linear_model import RidgeCV
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+
+RANDOM_STATE = 42
+TARGET = "int_rate"
+ID_COL = "ID"
+
+# -----------------------------
+# 1. LOAD DATA
+# -----------------------------
+
+if not os.path.exists("LC_train.csv"):
+    raise FileNotFoundError("Upload LC_train.csv to Colab first.")
+
+if not os.path.exists("LC_test.csv"):
+    raise FileNotFoundError("Upload LC_test.csv to Colab first.")
+
+train = pd.read_csv("LC_train.csv", na_values=["NA"])
+test = pd.read_csv("LC_test.csv", na_values=["NA"])
+
+print("Original train:", train.shape)
+print("Original test:", test.shape)
+
+if TARGET not in train.columns:
+    raise ValueError(f"Target column {TARGET} not found. Available columns: {train.columns.tolist()}")
+
+train[TARGET] = pd.to_numeric(train[TARGET], errors="coerce")
+train = train.dropna(subset=[TARGET]).copy()
+
+# -----------------------------
+# 2. DROP LEAKAGE COLUMNS
+# -----------------------------
+
+leakage_cols = [
+    "loan_status", "grade", "sub_grade", "installment",
+    "last_fico_range_high", "last_fico_range_low",
+    "last_pymnt_amnt", "last_pymnt_d", "next_pymnt_d",
+    "recoveries", "collection_recovery_fee",
+    "total_pymnt", "total_pymnt_inv",
+    "total_rec_prncp", "total_rec_int", "total_rec_late_fee",
+    "out_prncp", "out_prncp_inv",
+    "hardship_flag", "debt_settlement_flag"
+]
+
+train = train.drop(columns=[c for c in leakage_cols if c in train.columns])
+test = test.drop(columns=[c for c in leakage_cols if c in test.columns])
+
+print("After leakage removal train:", train.shape)
+print("After leakage removal test:", test.shape)
+
+# -----------------------------
+# 3. FEATURE ENGINEERING
+# -----------------------------
+
+def feature_engineering(df):
+    df = df.copy()
+
+    if "fico_range_low" in df.columns and "fico_range_high" in df.columns:
+        df["fico_mid"] = (df["fico_range_low"] + df["fico_range_high"]) / 2
+        df = df.drop(columns=["fico_range_low", "fico_range_high"])
+
+    if "term" in df.columns:
+        df["term_months"] = df["term"].astype(str).str.extract(r"(\d+)", expand=False).astype(float)
+
+    if "emp_length" in df.columns:
+        emp_map = {
+            "&lt; 1 year": 0, "1 year": 1, "2 years": 2, "3 years": 3,
+            "4 years": 4, "5 years": 5, "6 years": 6, "7 years": 7,
+            "8 years": 8, "9 years": 9, "10+ years": 10
+        }
+        df["emp_length_num"] = df["emp_length"].map(emp_map)
+
+    if "loan_amnt" in df.columns and "annual_inc" in df.columns:
+        df["loan_to_income"] = df["loan_amnt"] / (df["annual_inc"] + 1)
+
+    if "dti" in df.columns and "annual_inc" in df.columns:
+        df["dti_income_interaction"] = df["dti"] * np.log1p(df["annual_inc"].clip(lower=0))
+
+    if "fico_mid" in df.columns and "revol_util" in df.columns:
+        df["fico_revol_interaction"] = df["fico_mid"] * df["revol_util"]
+
+    if "fico_mid" in df.columns and "dti" in df.columns:
+        df["fico_dti_interaction"] = df["fico_mid"] * df["dti"]
+
+    log_cols = ["annual_inc", "loan_amnt", "revol_bal", "tot_cur_bal", "total_bal_ex_mort", "tot_coll_amt"]
+
+    for col in log_cols:
+        if col in df.columns:
+            df[col + "_log"] = np.log1p(df[col].clip(lower=0))
+
+    missing_cols = ["mths_since_last_record", "mths_since_recent_inq", "mths_since_rcnt_il", "mths_since_recent_bc"]
+
+    for col in missing_cols:
+        if col in df.columns:
+            df[col + "_missing"] = df[col].isna().astype(int)
+
+    return df
+
+train_fe = feature_engineering(train)
+test_fe = feature_engineering(test)
+
+# -----------------------------
+# 4. SPLIT DATA
+# -----------------------------
+
+X = train_fe.drop(columns=[TARGET])
+y = train_fe[TARGET]
+
+if ID_COL in test_fe.columns:
+    test_ids = test_fe[ID_COL]
+    X_test = test_fe.drop(columns=[ID_COL])
+else:
+    test_ids = pd.Series(range(len(test_fe)), name=ID_COL)
+    X_test = test_fe.copy()
+
+X_test = X_test.reindex(columns=X.columns, fill_value=np.nan)
+
+X = X.replace([np.inf, -np.inf], np.nan)
+X_test = X_test.replace([np.inf, -np.inf], np.nan)
+
+X_train, X_valid, y_train, y_valid = train_test_split(
+    X, y, test_size=0.20, random_state=RANDOM_STATE
+)
+
+numeric_features = X_train.select_dtypes(include=["int64", "float64"]).columns.tolist()
+categorical_features = X_train.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
+
+# -----------------------------
+# 5. PREPROCESSORS
+# -----------------------------
+
+onehot_preprocessor = ColumnTransformer([
+    ("num", SimpleImputer(strategy="median"), numeric_features),
+    ("cat", Pipeline([
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore", min_frequency=20))
+    ]), categorical_features)
+])
+
+linear_preprocessor = ColumnTransformer([
+    ("num", Pipeline([
+        ("imputer", SimpleImputer(strategy="median")),
+        ("scaler", StandardScaler(with_mean=False))
+    ]), numeric_features),
+    ("cat", Pipeline([
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore", min_frequency=20))
+    ]), categorical_features)
+])
+
+ordinal_preprocessor = ColumnTransformer([
+    ("num", SimpleImputer(strategy="median"), numeric_features),
+    ("cat", Pipeline([
+        ("imputer", SimpleImputer(strategy="most_frequent")),
+        ("ordinal", OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1))
+    ]), categorical_features)
+])
+
+# -----------------------------
+# 6. MODELS
+# -----------------------------
+
+models = {
+    "Random Forest": Pipeline([
+        ("preprocessor", onehot_preprocessor),
+        ("model", RandomForestRegressor(
+            n_estimators=250,
+            max_depth=25,
+            min_samples_split=2,
+            min_samples_leaf=1,
+            max_features=0.7,
+            random_state=RANDOM_STATE,
+            n_jobs=1
+        ))
+    ]),
+
+    "Extra Trees": Pipeline([
+        ("preprocessor", onehot_preprocessor),
+        ("model", ExtraTreesRegressor(
+            n_estimators=300,
+            max_depth=None,
+            min_samples_split=2,
+            min_samples_leaf=1,
+            max_features=0.7,
+            random_state=RANDOM_STATE,
+            n_jobs=1
+        ))
+    ]),
+
+    "Ridge": Pipeline([
+        ("preprocessor", linear_preprocessor),
+        ("model", RidgeCV(alphas=[0.1, 1, 10, 30, 100, 300]))
+    ]),
+
+    "Hist Gradient Boosting": Pipeline([
+        ("preprocessor", ordinal_preprocessor),
+        ("model", HistGradientBoostingRegressor(
+            max_iter=250,
+            learning_rate=0.05,
+            max_leaf_nodes=31,
+            l2_regularization=0.1,
+            random_state=RANDOM_STATE
+        ))
+    ])
+}
+
+valid_predictions = {}
+test_predictions = {}
+rows = []
+
+for name, model in models.items():
+    print(f"\nTraining {name}...")
+    model.fit(X_train, y_train)
+
+    valid_pred = model.predict(X_valid)
+    test_pred = model.predict(X_test)
+
+    rmse = np.sqrt(mean_squared_error(y_valid, valid_pred))
+    mae = mean_absolute_error(y_valid, valid_pred)
+    r2 = r2_score(y_valid, valid_pred)
+
+    valid_predictions[name] = valid_pred
+    test_predictions[name] = test_pred
+
+    rows.append({
+        "Model": name,
+        "Validation RMSE": rmse,
+        "Validation MAE": mae,
+        "Validation R2": r2
+    })
+
+    print(name, "RMSE:", rmse)
+
+results = pd.DataFrame(rows).sort_values("Validation RMSE")
+display(results)
+
+# -----------------------------
+# 7. BLEND MODELS TO LOWER RMSE
+# -----------------------------
+
+blend_results = []
+
+model_names = list(valid_predictions.keys())
+
+for rf_w in np.arange(0, 1.01, 0.1):
+    for et_w in np.arange(0, 1.01 - rf_w, 0.1):
+        for ridge_w in np.arange(0, 1.01 - rf_w - et_w, 0.1):
+            hgb_w = 1 - rf_w - et_w - ridge_w
+
+            if hgb_w &lt; -0.0001:
+                continue
+
+            blend_pred = (
+                rf_w * valid_predictions["Random Forest"] +
+                et_w * valid_predictions["Extra Trees"] +
+                ridge_w * valid_predictions["Ridge"] +
+                hgb_w * valid_predictions["Hist Gradient Boosting"]
+            )
+
+            rmse = np.sqrt(mean_squared_error(y_valid, blend_pred))
+            mae = mean_absolute_error(y_valid, blend_pred)
+            r2 = r2_score(y_valid, blend_pred)
+
+            blend_results.append({
+                "Random Forest Weight": rf_w,
+                "Extra Trees Weight": et_w,
+                "Ridge Weight": ridge_w,
+                "Hist Gradient Boosting Weight": hgb_w,
+                "RMSE": rmse,
+                "MAE": mae,
+                "R2": r2
+            })
+
+blend_results = pd.DataFrame(blend_results).sort_values("RMSE")
+display(blend_results.head(10))
+
+best_blend = blend_results.iloc[0]
+
+print("\nBest Blend:")
+print(best_blend)
+
+# -----------------------------
+# 8. FINAL TEST SUBMISSION
+# -----------------------------
+
+final_test_pred = (
+    best_blend["Random Forest Weight"] * test_predictions["Random Forest"] +
+    best_blend["Extra Trees Weight"] * test_predictions["Extra Trees"] +
+    best_blend["Ridge Weight"] * test_predictions["Ridge"] +
+    best_blend["Hist Gradient Boosting Weight"] * test_predictions["Hist Gradient Boosting"]
+)
+
+final_test_pred = np.clip(final_test_pred, 0, 100)
+
+submission = pd.DataFrame({
+    ID_COL: test_ids,
+    "int_rate": final_test_pred
+})
+
+submission.to_csv("low_rmse_submission.csv", index=False)
+results.to_csv("model_results.csv", index=False)
+blend_results.to_csv("blend_results.csv", index=False)
+
+print("\nSaved files:")
+print("low_rmse_submission.csv")
+print("model_results.csv")
+print("blend_results.csv")
+
+display(submission.head())</pre></div>
+                <div class="output-area">
+                    <div class="output-wrapper">
+                        <div class="cell-prompt output-prompt"></div>
+                        <div class="output-content">
+                            <div class="output-stream">Original train: (19519, 39)
+Original test: (10000, 39)
+After leakage removal train: (19518, 38)
+After leakage removal test: (10000, 38)
+
+Training Random Forest...
+Random Forest RMSE: 3.928732777833347
+
+Training Extra Trees...
+Extra Trees RMSE: 3.9879458177109197
+
+Training Ridge...
+Ridge RMSE: 4.118876083502155
+
+Training Hist Gradient Boosting...
+Hist Gradient Boosting RMSE: 3.8335652505824114
+</div>
+                        </div>
+                    </div>
+                    <div class="output-wrapper">
+                        <div class="cell-prompt output-prompt"></div>
+                        <div class="output-content">
+                            <div class="output-html">
+  <div id="df-24556299-6b14-43fc-870f-9461363a6011" class="colab-df-container">
+    <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Model</th>
+      <th>Validation RMSE</th>
+      <th>Validation MAE</th>
+      <th>Validation R2</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>3</th>
+      <td>Hist Gradient Boosting</td>
+      <td>3.833565</td>
+      <td>2.848446</td>
+      <td>0.444218</td>
+    </tr>
+    <tr>
+      <th>0</th>
+      <td>Random Forest</td>
+      <td>3.928733</td>
+      <td>2.912798</td>
+      <td>0.416281</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>Extra Trees</td>
+      <td>3.987946</td>
+      <td>2.934871</td>
+      <td>0.398554</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>Ridge</td>
+      <td>4.118876</td>
+      <td>3.158628</td>
+      <td>0.358412</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+    <div class="colab-df-buttons">
+
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-24556299-6b14-43fc-870f-9461363a6011')"
+            title="Convert this dataframe to an interactive table."
+            style="display:none;">
+
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"/>
+  </svg>
+    </button>
+
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+
+    <script>
+      const buttonEl =
+        document.querySelector('#df-24556299-6b14-43fc-870f-9461363a6011 button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-24556299-6b14-43fc-870f-9461363a6011');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    </script>
+  </div>
+
+
+  <div id="id_17bc1357-8601-4bcd-ae7c-69f15b563987">
+    <style>
+      .colab-df-generate {
+        background-color: #E8F0FE;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: none;
+        fill: #1967D2;
+        height: 32px;
+        padding: 0 0 0 0;
+        width: 32px;
+      }
+
+      .colab-df-generate:hover {
+        background-color: #E2EBFA;
+        box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+        fill: #174EA6;
+      }
+
+      [theme=dark] .colab-df-generate {
+        background-color: #3B4455;
+        fill: #D2E3FC;
+      }
+
+      [theme=dark] .colab-df-generate:hover {
+        background-color: #434B5C;
+        box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+        filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+        fill: #FFFFFF;
+      }
+    </style>
+    <button class="colab-df-generate" onclick="generateWithVariable('results')"
+            title="Generate code using this dataframe."
+            style="display:none;">
+
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px"viewBox="0 0 24 24"
+       width="24px">
+    <path d="M7,19H8.4L18.45,9,17,7.55,7,17.6ZM5,21V16.75L18.45,3.32a2,2,0,0,1,2.83,0l1.4,1.43a1.91,1.91,0,0,1,.58,1.4,1.91,1.91,0,0,1-.58,1.4L9.25,21ZM18.45,9,17,7.55Zm-12,3A5.31,5.31,0,0,0,4.9,8.1,5.31,5.31,0,0,0,1,6.5,5.31,5.31,0,0,0,4.9,4.9,5.31,5.31,0,0,0,6.5,1,5.31,5.31,0,0,0,8.1,4.9,5.31,5.31,0,0,0,12,6.5,5.46,5.46,0,0,0,6.5,12Z"/>
+  </svg>
+    </button>
+    <script>
+      (() => {
+      const buttonEl =
+        document.querySelector('#id_17bc1357-8601-4bcd-ae7c-69f15b563987 button.colab-df-generate');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      buttonEl.onclick = () => {
+        google.colab.notebook.generateWithVariable('results');
+      }
+      })();
+    </script>
+  </div>
+
+    </div>
+  </div>
+</div>
+                        </div>
+                    </div>
+                    <div class="output-wrapper">
+                        <div class="cell-prompt output-prompt"></div>
+                        <div class="output-content">
+                            <div class="output-html">
+  <div id="df-55c7991c-a487-4df6-b244-4e39df24a6a5" class="colab-df-container">
+    <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Random Forest Weight</th>
+      <th>Extra Trees Weight</th>
+      <th>Ridge Weight</th>
+      <th>Hist Gradient Boosting Weight</th>
+      <th>RMSE</th>
+      <th>MAE</th>
+      <th>R2</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>11</th>
+      <td>0.0</td>
+      <td>0.1</td>
+      <td>0.0</td>
+      <td>0.9</td>
+      <td>3.831918</td>
+      <td>2.844520</td>
+      <td>0.444696</td>
+    </tr>
+    <tr>
+      <th>66</th>
+      <td>0.1</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.9</td>
+      <td>3.832054</td>
+      <td>2.846917</td>
+      <td>0.444656</td>
+    </tr>
+    <tr>
+      <th>67</th>
+      <td>0.1</td>
+      <td>0.0</td>
+      <td>0.1</td>
+      <td>0.8</td>
+      <td>3.832412</td>
+      <td>2.852087</td>
+      <td>0.444553</td>
+    </tr>
+    <tr>
+      <th>76</th>
+      <td>0.1</td>
+      <td>0.1</td>
+      <td>0.0</td>
+      <td>0.8</td>
+      <td>3.832434</td>
+      <td>2.843589</td>
+      <td>0.444546</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.1</td>
+      <td>0.9</td>
+      <td>3.832722</td>
+      <td>2.853521</td>
+      <td>0.444463</td>
+    </tr>
+    <tr>
+      <th>121</th>
+      <td>0.2</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.8</td>
+      <td>3.833020</td>
+      <td>2.846429</td>
+      <td>0.444376</td>
+    </tr>
+    <tr>
+      <th>12</th>
+      <td>0.0</td>
+      <td>0.1</td>
+      <td>0.1</td>
+      <td>0.8</td>
+      <td>3.833241</td>
+      <td>2.850617</td>
+      <td>0.444312</td>
+    </tr>
+    <tr>
+      <th>0</th>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>1.0</td>
+      <td>3.833565</td>
+      <td>2.848446</td>
+      <td>0.444218</td>
+    </tr>
+    <tr>
+      <th>21</th>
+      <td>0.0</td>
+      <td>0.2</td>
+      <td>0.0</td>
+      <td>0.8</td>
+      <td>3.834138</td>
+      <td>2.843103</td>
+      <td>0.444052</td>
+    </tr>
+    <tr>
+      <th>122</th>
+      <td>0.2</td>
+      <td>0.0</td>
+      <td>0.1</td>
+      <td>0.7</td>
+      <td>3.834579</td>
+      <td>2.852518</td>
+      <td>0.443924</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+    <div class="colab-df-buttons">
+
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-55c7991c-a487-4df6-b244-4e39df24a6a5')"
+            title="Convert this dataframe to an interactive table."
+            style="display:none;">
+
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"/>
+  </svg>
+    </button>
+
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+
+    <script>
+      const buttonEl =
+        document.querySelector('#df-55c7991c-a487-4df6-b244-4e39df24a6a5 button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-55c7991c-a487-4df6-b244-4e39df24a6a5');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    </script>
+  </div>
+
+
+    </div>
+  </div>
+</div>
+                        </div>
+                    </div>
+                    <div class="output-wrapper">
+                        <div class="cell-prompt output-prompt"></div>
+                        <div class="output-content">
+                            <div class="output-stream">
+Best Blend:
+Random Forest Weight             0.000000
+Extra Trees Weight               0.100000
+Ridge Weight                     0.000000
+Hist Gradient Boosting Weight    0.900000
+RMSE                             3.831918
+MAE                              2.844520
+R2                               0.444696
+Name: 11, dtype: float64
+
+Saved files:
+low_rmse_submission.csv
+model_results.csv
+blend_results.csv
+</div>
+                        </div>
+                    </div>
+                    <div class="output-wrapper">
+                        <div class="cell-prompt output-prompt"></div>
+                        <div class="output-content">
+                            <div class="output-html">
+  <div id="df-c4c093bf-2648-4bd1-9f22-7acf1347d8e0" class="colab-df-container">
+    <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>ID</th>
+      <th>int_rate</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>12.166350</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>13.612548</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>7.576761</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>17.506332</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>14.753410</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+    <div class="colab-df-buttons">
+
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-c4c093bf-2648-4bd1-9f22-7acf1347d8e0')"
+            title="Convert this dataframe to an interactive table."
+            style="display:none;">
+
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"/>
+  </svg>
+    </button>
+
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+
+    <script>
+      const buttonEl =
+        document.querySelector('#df-c4c093bf-2648-4bd1-9f22-7acf1347d8e0 button.colab-df-convert');
+      buttonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+      async function convertToInteractive(key) {
+        const element = document.querySelector('#df-c4c093bf-2648-4bd1-9f22-7acf1347d8e0');
+        const dataTable =
+          await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                    [key], {});
+        if (!dataTable) return;
+
+        const docLinkHtml = 'Like what you see? Visit the ' +
+          '<a target="_blank" href=https://colab.research.google.com/notebooks/data_table.ipynb>data table notebook</a>'
+          + ' to learn more about interactive tables.';
+        element.innerHTML = '';
+        dataTable['output_type'] = 'display_data';
+        await google.colab.output.renderOutput(dataTable, element);
+        const docLink = document.createElement('div');
+        docLink.innerHTML = docLinkHtml;
+        element.appendChild(docLink);
+      }
+    </script>
+  </div>
+
+
+    </div>
+  </div>
+</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer class="export-footer">
+        Exported with <a href="https://www.runcell.dev/tool/ipynb-to-html">runcell</a> — convert notebooks to HTML or PDF anytime at runcell.dev.
+    </footer>
+</body>
+</html>
