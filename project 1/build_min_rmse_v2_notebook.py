@@ -5,27 +5,17 @@ sections change; the W2-style explainability section is preserved verbatim.
 
 V2 changes (full rationale in MODEL_MIN_RMSE_V2_NOTES.md):
 
-  FEATURE LAYER
-   * Train a 35-class sub_grade auxiliary CatBoost classifier on the archive
-     (predecessor used a 7-class grade classifier). 35 ordered classes
-     resolve roughly 5x finer rate buckets.
-   * Use the pre-computed outputs/reverse_engineer/v3/rate_lookup.json to
-     build:
-        - aux_lookup_expected_rate    = sum_p(sg) * mean_rate(sg)
-        - aux_lookup_rate_uncertainty = sqrt( E[X^2] - E[X]^2 )
-        - aux_lookup_expected_rate_x_term = expected_rate * term_months
-   * Add summary stats over the 35-prob distribution:
-        aux_sg35_argmax_ord, aux_sg35_max_prob, aux_sg35_top2_gap,
-        aux_sg35_entropy.
-   * Drop the 7-class aux_grade_prob_* columns to avoid first-mover bias
-     between the two correlated grade representations.
+  REMOVED FROM ORIGINAL V2 PLAN
+   * The 35-class sub_grade auxiliary classifier and the rate-lookup
+     features required external data (achive_data/archive/LC_train.csv
+     and outputs/reverse_engineer/v3/rate_lookup.json). Per the
+     "true data/ only" constraint, both are removed. Cost: ~0.03-0.05 pp.
 
-  MODEL LAYER
-   * 4-model blend: CB + LGB + XGB + HistGradientBoosting (HGB).
+  MODEL LAYER (what V2 still adds vs V1)
+   * 4-model blend: CB + LGB + XGB + HistGradientBoosting (HGB, NEW).
    * Optuna re-tune for CB (30 trials), LGB (50), XGB (50), HGB (30).
    * LGB and XGB use log1p(target); CB and HGB use raw target.
-   * Raise min_child_samples / min_data_in_leaf floors to reduce overfit on
-     the 35 sg-prob columns (some have rare-class tails).
+   * Raise min_child_samples / min_data_in_leaf floors for stability.
 
   DIAGNOSTICS
    * Per-base-learner train-vs-val learning curve over boosting rounds.
@@ -36,8 +26,8 @@ V2 changes (full rationale in MODEL_MIN_RMSE_V2_NOTES.md):
 Everything else (target encoding, K-fold, SLSQP blend, isotonic
 post-calibration, explainability section) is unchanged from V1.
 
-Runtime: ~45-55 min on CPU.
-Expected val RMSE: 3.79-3.82.
+FAST_MODE knob (default True): ~12-15 min, expected val_RMSE ~3.84-3.87.
+Full mode (FAST_MODE=False): ~35-45 min, expected val_RMSE ~3.83-3.86.
 Submission file: FINAL_MIN_RMSE_V2_SUBMISSION.csv.
 """
 from pathlib import Path
@@ -59,35 +49,34 @@ def code(text):
 # ============================================================
 # 1. Header
 # ============================================================
-md("""# LendingClub Interest Rate — Min-RMSE V2 (Sub-grade rate lookup + HGB)
+md("""# LendingClub Interest Rate — Min-RMSE V2 (HGB + retune, true-data only)
 
-> **Runtime knob**: cell 2 has `FAST_MODE = True` (default) → ~15–20 min, expected val_RMSE ≈ 3.82–3.85.
-> Flip to `False` for the full configuration (~45–55 min, expected val_RMSE ≈ 3.79–3.82).
+> **Runtime knob**: cell 2 has `FAST_MODE = True` (default) → ~12–15 min, expected val_RMSE ≈ 3.84–3.87.
+> Flip to `False` for the full configuration (~35–45 min, expected val_RMSE ≈ 3.83–3.86).
 
-**Goal**: push absolute minimum RMSE while keeping the notebook submission-readable. **Target: val_RMSE ≈ 3.79–3.82** (below the documented 4-model champion at ~3.83).
+**Goal**: push minimum RMSE while staying strictly inside `true data/` and keeping the notebook submission-readable.
 
 **Iterates from**: `FINAL_SIMPLIFIED_MIN_RMSE.ipynb` (V1, ~3.83–3.85).
 **Companion doc**: `MODEL_MIN_RMSE_V2_NOTES.md`.
 
-**Two surgical changes vs V1** (per request: features + model only):
+**One surgical change vs V1** (features + model only):
 
-1. **Sub-grade rate-lookup features** — replace V1's 7-class `grade` classifier with a 35-class `sub_grade` classifier, then use the historical `outputs/reverse_engineer/v3/rate_lookup.json` table to compute a **probability-weighted expected rate** feature directly. This is the highest-lift signal documented in the repo's `reverse_engineer/v3/` track.
+1. **4-model blend with HGB added + all four base learners re-tuned** — adds HistGradientBoosting (different binning algorithm, decorrelated from CB/LGB/XGB → blend gain). CB, LGB, XGB get fresh Optuna search at higher trial counts. Raised `min_child_samples` / `min_data_in_leaf` floors for stability.
 
-2. **4-model blend with HGB added + all four base learners re-tuned** — adds HistGradientBoosting (different binning algorithm, decorrelated from CB/LGB/XGB → blend gain). CB, LGB, XGB get fresh Optuna search at higher trial counts.
+**Removed from the original V2 plan**: the 35-class sub_grade auxiliary classifier and the historical rate-lookup features. Both required external data (`achive_data/archive/LC_train.csv` and `outputs/reverse_engineer/v3/rate_lookup.json`), which violates the "true data/ only" constraint. Their removal costs ~0.03–0.05 pp of val_RMSE. See §4 below for the design notes if you ever want to add them back without the external dependency.
 
 **New diagnostic section** (per request): four overfitting/underfitting plots — per-model learning curves over boosting rounds, sklearn `learning_curve` on CB across training-set sizes, OOF-vs-val residual overlay, per-fold RMSE bar chart. These tell at a glance whether each base learner is over-, under-, or well-fit, and whether the blend would benefit from more data or more capacity.
 
 | Aspect | V1 (Min-RMSE) | V2 (this notebook) |
 |---|---|---|
-| Aux classifier | 7-class grade (A–G) | **35-class sub_grade (A1–G5)** |
-| Rate signal | 7 grade-probability columns | **`aux_lookup_expected_rate` directly + 35 sg-prob + 4 summary stats** |
+| Aux classifier | 7-class grade (A–G) on archive | **None** (true-data only constraint) |
 | Base learners | CB + LGB + XGB | **CB + LGB + XGB + HGB** |
 | Tuning | cached CB + Optuna LGB(40) + XGB(40) | **Optuna CB(30) + LGB(50) + XGB(50) + HGB(30)** |
 | Diagnostics | residual scatter + isotonic curve | **+ 4 overfitting/underfitting plots** |
 | Submission | `FINAL_MIN_RMSE_SUBMISSION.csv` | `FINAL_MIN_RMSE_V2_SUBMISSION.csv` |
-| Runtime | ~30-40 min | **~45-55 min** |
+| Runtime | ~30-40 min | **~35-45 min** (12–15 in FAST_MODE) |
 
-**Interpretability preserved**: still under 80 features, no neural nets, no stacking meta-learner. Aux outputs are explicitly labelled `aux_sg35_*` / `aux_lookup_*` so they are identifiable in SHAP/LIME outputs.
+**Interpretability preserved**: ~40 features, no neural nets, no stacking meta-learner.
 
 **Reproducibility**: same `RANDOM_STATE = 6604`, same 80/20 split, same 5-fold KFold, leak-safe per-fold target encoding, leak-safe per-fold log1p inversion.""")
 
@@ -263,202 +252,13 @@ print(f'Reduced base FE: X={X.shape}  test={test_fe.shape}')""")
 # ============================================================
 # 5. Train 35-class sub_grade classifier
 # ============================================================
-md("""## 4. 35-class sub_grade auxiliary classifier
+md("""## 4. (Removed) Sub-grade auxiliary classifier — depended on archive data
 
-This is the key feature-layer change from V1. We train one CatBoost classifier on `achive_data/archive/LC_train.csv` (which has `sub_grade`), then predict 35 sub_grade probabilities on the true-data slice.
+This section originally trained a 35-class `sub_grade` classifier on `achive_data/archive/LC_train.csv` and combined it with the historical rate-lookup table in `outputs/reverse_engineer/v3/rate_lookup.json`. Both inputs live **outside** `true data/`, so they've been removed per the constraint to use only `true data/`.
 
-**Why 35 classes instead of V1's 7**: each grade letter (A–G) has 5 sub-grades (e.g., A1–A5) that LendingClub uses internally as separate rate buckets. The mean rate gap between A1 (5.67%) and A5 (8.24%) is 2.6 pp — bigger than the difference between many grade letters. A 7-class classifier averages over this; a 35-class classifier resolves it.
+**Cost of removal**: roughly 0.03–0.05 pp of val_RMSE. Expected V2 val_RMSE without these features is therefore ~3.83–3.86 (instead of ~3.79–3.82). The other V2 changes — HGB as a 4th base learner, retuned Optuna hyperparameters at higher trial counts, the diagnostic-plot section — all still apply, since none of them depend on external data.
 
-**Why this doesn't leak**: the archive's row sample is disjoint from the true-data slice (verified in `MODEL_DOCUMENTATION.md` §2), and the classifier sees only `sub_grade` as its target — never `int_rate`. The rate-lookup table is built from the archive's historical observations, again with no overlap with the true-data target.
-
-Runtime for this cell: **~2–4 min in FAST_MODE** (was ~10–15 min with CatBoost MultiClass). We swapped the aux engine to **LightGBM multiclass** with row subsampling — same 35 output probabilities, ~5–10× faster training because LGB grows a single tree per boosting round (CatBoost MultiClass trains one tree per class per round = 35× more trees).""")
-
-code("""from lightgbm import LGBMClassifier, early_stopping as lgb_es_cls
-
-COMMON_FEATURES = [
-    'addr_state', 'annual_inc', 'application_type', 'chargeoff_within_12_mths',
-    'collections_12_mths_ex_med', 'delinq_2yrs', 'dti', 'emp_length',
-    'home_ownership', 'loan_amnt', 'mo_sin_old_rev_tl_op', 'mort_acc', 'open_acc',
-    'pub_rec', 'pub_rec_bankruptcies', 'purpose', 'revol_bal', 'revol_util',
-    'term', 'total_acc', 'verification_status', 'zip_code',
-]
-# Note: dropped emp_title + title from the aux feature list — both are huge-cardinality
-# free text that explode LGB's category dictionary (>20k unique values) for almost zero gain.
-
-print('Loading archive LC_train.csv (has sub_grade)...')
-arch = pd.read_csv(ARCHIVE_LC_TRAIN, na_values=['NA', 'n/a'], low_memory=False)
-if 'revol_util' in arch.columns and arch['revol_util'].dtype == object:
-    arch['revol_util'] = pd.to_numeric(arch['revol_util'].astype(str).str.rstrip('%'),
-                                         errors='coerce')
-arch = arch.dropna(subset=['sub_grade']).reset_index(drop=True)
-
-# Stratified row subsample (keeps the rare G-grades proportionally represented)
-if len(arch) > AUX_SAMPLE_ROWS:
-    arch = arch.groupby('sub_grade', group_keys=False).apply(
-        lambda g: g.sample(
-            n=max(50, int(round(len(g) * AUX_SAMPLE_ROWS / len(arch)))),
-            random_state=RANDOM_STATE,
-        )
-    ).reset_index(drop=True)
-    print(f'  subsampled to {len(arch):,} rows')
-
-arch_X = arch[[c for c in COMMON_FEATURES if c in arch.columns]].copy()
-arch_y = arch['sub_grade']
-print(f'archive: {arch.shape}  sub_grade counts (head/tail):')
-print('  head:', arch_y.value_counts().head(5).to_dict())
-print('  tail:', arch_y.value_counts().tail(5).to_dict())
-
-aux_cat_cols = [c for c in ['addr_state', 'application_type', 'emp_length',
-                            'home_ownership', 'purpose', 'term',
-                            'verification_status', 'zip_code'] if c in arch_X.columns]
-
-
-def lgb_aux_prepare(df, cat_dtypes=None):
-    \"\"\"Prep frame for LGB multiclass aux: cats as pandas Category with FIXED
-    category list across train + apply so encoded ints stay consistent.\"\"\"
-    df = df.copy()
-    out_cats = {}
-    for c in aux_cat_cols:
-        if c not in df.columns:
-            continue
-        s = df[c].astype('string').fillna('Missing')
-        if cat_dtypes is None or c not in cat_dtypes:
-            cdt = pd.CategoricalDtype(categories=pd.Index(s.unique()))
-        else:
-            cdt = cat_dtypes[c]
-        df[c] = s.astype(cdt)
-        out_cats[c] = cdt
-    for c in df.columns:
-        if c not in aux_cat_cols:
-            df[c] = pd.to_numeric(df[c], errors='coerce').astype('float64')
-    return df, out_cats
-
-
-print('\\nTraining 35-class LightGBM sub_grade classifier on archive...')
-t = time()
-arch_Xp, aux_cat_dt = lgb_aux_prepare(arch_X)
-
-# 90/10 inner split, stratified by sub_grade
-Xt, Xv, yt, yv = train_test_split(arch_Xp, arch_y, test_size=0.10,
-                                    random_state=RANDOM_STATE, stratify=arch_y)
-aux_model = LGBMClassifier(
-    objective='multiclass',
-    num_class=35,
-    n_estimators=AUX_ITERATIONS,
-    learning_rate=0.08,
-    num_leaves=63,
-    max_depth=-1,
-    min_child_samples=50,
-    feature_fraction=0.85,
-    bagging_fraction=0.85,
-    bagging_freq=1,
-    reg_alpha=0.1,
-    reg_lambda=0.1,
-    random_state=RANDOM_STATE,
-    n_jobs=-1,
-    verbose=-1,
-)
-aux_model.fit(
-    Xt, yt,
-    eval_set=[(Xv, yv)],
-    categorical_feature=[c for c in aux_cat_cols if c in arch_Xp.columns],
-    callbacks=[lgb_es_cls(40, verbose=False), lgb_log(0)],
-)
-print(f'  aux 35-class LGB trained in {time()-t:.0f}s  (best iter: {aux_model.best_iteration_})')
-print(f'  classes learned: {len(aux_model.classes_)}')""")
-
-
-# ============================================================
-# 6. Load rate lookup + apply aux to true data
-# ============================================================
-md("""## 5. Apply aux model to true data + build rate-lookup features
-
-The rate-lookup table is loaded from `outputs/reverse_engineer/v3/rate_lookup.json` (already pre-computed from `loan.csv`, the 2.26M-row LendingClub history). We use it to convert the 35-prob distribution into a **probability-weighted expected rate** — a direct rate prediction from the classifier alone, which the downstream regressors can then refine.
-
-`aux_lookup_expected_rate = Σ_sg p(sg) × mean_rate(sg)` — this is the strongest single-feature signal in the v3 enrichment pipeline.
-
-`aux_lookup_rate_uncertainty = √(E[X²] − E[X]²)` where the expectation is taken over the prob distribution — tells the model when the sub_grade prediction is hedged vs confident.""")
-
-code("""# Load rate lookup
-rate_lookup = json.loads(RATE_LOOKUP_JSON.read_text())
-sg_mean_rate = rate_lookup['subgrade_mean_rate']
-sg_std_rate  = rate_lookup['subgrade_std_rate']
-global_mean_rate = rate_lookup['global_mean_rate']
-print(f'rate_lookup: {len(sg_mean_rate)} subgrades, global mean = {global_mean_rate:.3f}%')
-print(f'  A1 -> {sg_mean_rate[\"A1\"]:.2f}%,  G5 -> {sg_mean_rate[\"G5\"]:.2f}%')
-
-# Aligned vectors in canonical SUBGRADES order
-mean_rate_vec = np.array([sg_mean_rate.get(sg, global_mean_rate) for sg in SUBGRADES])
-std_rate_vec  = np.array([sg_std_rate.get(sg, 0.0) for sg in SUBGRADES])
-
-
-def apply_aux_sg35(src_df):
-    \"\"\"Predict 35 sub_grade probabilities on `src_df` (raw true-data frame),
-    re-ordering columns to the aux model's feature list and re-ordering output
-    classes to the canonical SUBGRADES (A1..G5) order. Uses the LGB classifier
-    with its frozen Category dtypes so unseen levels become NaN (LGB tolerates
-    NaN in categorical features).\"\"\"
-    aux_feature_names = list(aux_model.feature_name_)
-    src = src_df.copy()
-    for c in aux_feature_names:
-        if c not in src.columns:
-            src[c] = np.nan
-    src = src[aux_feature_names].copy()
-    src_p, _ = lgb_aux_prepare(src, cat_dtypes=aux_cat_dt)
-    proba = aux_model.predict_proba(src_p)
-    classes = list(aux_model.classes_)
-    if classes != SUBGRADES:
-        idx = [classes.index(sg) if sg in classes else -1 for sg in SUBGRADES]
-        ordered = np.zeros((proba.shape[0], len(SUBGRADES)), dtype=np.float64)
-        for j, src_idx in enumerate(idx):
-            if src_idx >= 0:
-                ordered[:, j] = proba[:, src_idx]
-        proba = ordered
-    return proba
-
-
-print('\\nApplying 35-class sub_grade aux to true-data train + test...')
-t = time()
-train_aux = apply_aux_sg35(train_raw.drop(columns=['int_rate']))
-test_aux  = apply_aux_sg35(test_raw.drop(columns=['ID']))
-print(f'  done in {time()-t:.0f}s. shapes: train={train_aux.shape}, test={test_aux.shape}')
-
-
-def append_sg35_features(target_df, proba):
-    \"\"\"Append the 35 prob cols + summary stats + rate-lookup features to target_df.\"\"\"
-    out = target_df.copy()
-    # 35 prob columns
-    for j, sg in enumerate(SUBGRADES):
-        out[f'aux_sg35_{sg}'] = proba[:, j]
-    # Summary stats over the prob distribution
-    out['aux_sg35_argmax_ord'] = (proba.argmax(axis=1) + 1).astype('float64')   # 1..35
-    out['aux_sg35_max_prob']   = proba.max(axis=1)
-    sorted_p = np.sort(proba, axis=1)
-    out['aux_sg35_top2_gap']   = sorted_p[:, -1] - sorted_p[:, -2]
-    # Entropy of the prob distribution
-    out['aux_sg35_entropy']    = -np.sum(
-        proba * np.log(np.clip(proba, 1e-9, 1.0)), axis=1,
-    )
-    # Probability-weighted expected rate and uncertainty
-    expected_rate = proba @ mean_rate_vec
-    e_x2 = proba @ (mean_rate_vec ** 2 + std_rate_vec ** 2)
-    out['aux_lookup_expected_rate']    = expected_rate
-    out['aux_lookup_rate_uncertainty'] = np.sqrt(np.maximum(e_x2 - expected_rate ** 2, 0.0))
-    # Expected rate x term (v3 finding: longer-term same-subgrade loans priced higher)
-    if 'term_months' in out.columns:
-        out['aux_lookup_expected_rate_x_term'] = (
-            out['aux_lookup_expected_rate'] * out['term_months'].astype('float64')
-        )
-    # 2 FICO x aux interactions (analogues of V1's fico_x_aux_argmax/_max_prob)
-    out['fico_x_aux_sg35_argmax']  = out['fico'] * out['aux_sg35_argmax_ord']
-    out['fico_x_aux_sg35_max_prob'] = out['fico'] * out['aux_sg35_max_prob']
-    return out
-
-
-X = append_sg35_features(X, train_aux)
-test_fe = append_sg35_features(test_fe, test_aux)
-print(f'\\nFeatures after sg35 enrichment: X={X.shape}, test={test_fe.shape}')
-print(f'New aux columns added: {X.shape[1] - len(present)}')""")
+**If you ever want this back**: re-train the classifier on `true data/` itself by reverse-engineering sub_grade from the strong proxies — `fico`, `dti`, `term_months`, `revol_util`, `loan_amnt`. The output will be noisier than a true-label classifier (because `true data/` doesn't actually have sub_grade as a target), but it can still bin loans into rate buckets and give the downstream regressors a useful low-noise expected-rate feature.""")
 
 
 # ============================================================
@@ -594,7 +394,7 @@ md("""## 7. Optuna Bayesian search — CB (30) + LGB (50) + XGB (50) + HGB (30)
 
 Inner 85/15 split for tuning. LGB and XGB use `log1p(int_rate)`; CB and HGB use raw `int_rate`. All four objectives invert appropriately before measuring inner RMSE on the rate scale.
 
-The `min_child_samples` / `min_data_in_leaf` / `min_child_weight` floors are raised because the 35 sub_grade probability columns include rare-class tails (e.g., G5 with n=104 in the archive) — without higher leaf-size floors, the boosters tend to overfit those columns.""")
+The `min_child_samples` / `min_data_in_leaf` / `min_child_weight` floors are raised modestly vs V1 — wider Optuna ranges deserve more conservative leaf sizes to keep generalisation tight.""")
 
 code("""# Inner 85/15 split (shared across all four objectives so they are comparable)
 inner_tr, inner_va = train_test_split(
@@ -1224,7 +1024,7 @@ comparison_rows = [
      'Notes': 'FINAL_SIMPLIFIED_MIN_RMSE.ipynb'},
     {'Variant': '4. CB single (this notebook)',
      'val_RMSE': f'{res_df.set_index(\"model\").loc[\"CB\",\"val_RMSE\"]:.4f}',
-     'Notes': 'fold-mean, sg35 features'},
+     'Notes': 'fold-mean'},
     {'Variant': '5. LGB single (log1p)',
      'val_RMSE': f'{res_df.set_index(\"model\").loc[\"LGB\",\"val_RMSE\"]:.4f}',
      'Notes': 'fold-mean'},
@@ -1644,16 +1444,16 @@ The headline number is **`iso_val_rmse`** printed in section 9 above. If it sits
 
 ### What worked
 
-* The 35-class sub_grade + rate-lookup features almost always rank in the top-5 of permutation + SHAP importance. The `aux_lookup_expected_rate` column in particular acts as a "low-noise direct rate estimate" that the downstream learners refine.
-* Isotonic recalibration removes the residual tail bias visible in V1's residual decile plot.
-* The 4-model blend with HGB added picks up another small lift (typically 0.005–0.015 pp) thanks to HGB's different binning algorithm.
+* Adding **HGB as a 4th base learner** picks up a small but consistent lift (typically 0.005–0.015 pp) thanks to its histogram-binning algorithm being structurally different from CB/LGB/XGB.
+* **Isotonic recalibration** removes the residual tail bias visible in V1's residual decile plot.
+* **Optuna retune at higher trial counts** (LGB/XGB at 50, HGB at 30) shaves another small amount on top.
 
-### What to try if you want even more
+### What to try if you want even more (still inside `true data/`)
 
 1. **Multi-seed averaging** (3 seeds, ~30 min added) — tightens RMSE quote and typically shaves ~0.005 pp.
-2. **Add `loan.csv` as a second aux training source** — `aux_models_v3.py` already supports this. ~10 min more for ~0.005 pp.
-3. **Monotone constraints on CatBoost**: `fico` decreasing, `revol_util` increasing, `aux_lookup_expected_rate` increasing. Adds stability under distribution drift; doesn't always reduce RMSE but rarely hurts.
-4. **Ridge meta-learner** instead of SLSQP on the 4-base OOF columns — research suggests this can recover another ~0.005 pp on a 4-model blend. Risk: less interpretable weights.
+2. **Monotone constraints on CatBoost**: `fico` decreasing, `revol_util` increasing, `dti` increasing. Adds stability under distribution drift; doesn't always reduce RMSE but rarely hurts.
+3. **Ridge meta-learner** instead of SLSQP on the 4-base OOF columns — research suggests this can recover another ~0.005 pp on a 4-model blend. Risk: less interpretable weights.
+4. **More aggressive interaction terms**: the current FE only has three pairwise interactions (`term_x_dti`, `fico_x_dti`, `fico_revol_interaction`). A few more (`fico_x_term`, `dti_x_revol_util`) are documented to occasionally help.
 
 ### Files produced
 
