@@ -9,8 +9,9 @@ header cell followed by 1+ code cells. Executing this script writes a fresh
 Dataset: true data/LC_train.csv and true data/LC_test.csv
   - 100k train, 10k test
   - 39 columns each (train has int_rate target; test has ID, no target)
+  - data dictionary covers every train column exactly
   - FICO scores PRESENT (fico_range_low, fico_range_high)
-  - loan_status PRESENT in both — post-origination leakage; dropped immediately after load
+  - loan_status PRESENT in both — current status, unavailable at application time; dropped immediately after load
   - No date columns (no issue_d, no earliest_cr_line) — no temporal validation possible
   - Several numerics stored as strings with "NA" nulls — cleaned at load time
 """
@@ -36,15 +37,17 @@ def code(src: str):
 md("""
 # LendingClub Interest Rate EDA — `true data/`
 
-**Goal:** Understand the structure, quality, and signal in `true data/LC_train.csv` (100k loans, 39 cols) before modeling `int_rate`. This dataset differs materially from `data/LC_*.csv`:
+**Goal:** Understand the structure, quality, and signal in `true data/LC_train.csv` (100k loans, 39 cols) before modeling `int_rate`. This EDA is application-time honest: it uses the data dictionary to verify what each field means, keeps raw inputs separate from safe analysis frames, and excludes fields unavailable at origination.
+
+This dataset differs materially from `data/LC_*.csv`:
 
 - **FICO scores are present** (`fico_range_low`, `fico_range_high`) — they were stripped from the prior slice
-- **`loan_status` is present** — a post-origination column that leaks the target; dropped immediately after load
+- **`loan_status` is present** — a post-origination status field; excluded because it is unavailable at application time
 - **No date columns** (no `issue_d`, no `earliest_cr_line`) — temporal validation is not possible on this slice
 - **No `grade`, `sub_grade`, or `installment`** — the obvious pre-origination leakage trio is gone
 - Several numerics arrive as strings (`dti`, `revol_util`, `all_util`, `mths_since_*`, `mo_sin_old_il_acct`) with literal `"NA"` for nulls — cast at load time
 
-This notebook does NOT engineer features or fit models. It analyses raw data and recommends modeling choices.
+This notebook does NOT fit models. It uses only diagnostic derived fields needed to audit relationships and recommend modeling choices.
 """)
 
 md("## 0. Setup")
@@ -76,6 +79,7 @@ PROJECT_ROOT = Path.cwd().resolve()
 if PROJECT_ROOT.name == "notebooks":
     PROJECT_ROOT = PROJECT_ROOT.parent
 DATA_DIR = PROJECT_ROOT / "true data"
+DICTIONARY_PATH = DATA_DIR / "LCDataDictionary.xlsx"
 OUTPUT_DIR = PROJECT_ROOT / "outputs" / "eda"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -87,6 +91,7 @@ def save_fig(name: str, fig=None):
 
 print(f"PROJECT_ROOT = {PROJECT_ROOT}")
 print(f"DATA_DIR     = {DATA_DIR}")
+print(f"DICTIONARY   = {DICTIONARY_PATH}")
 print(f"OUTPUT_DIR   = {OUTPUT_DIR}")
 """)
 
@@ -104,11 +109,10 @@ STRING_NUMERIC_COLS = [
 # in both for parity.
 NUMERIC_OVERRIDES = {c: pl.Float64 for c in STRING_NUMERIC_COLS + ["tot_cur_bal"]}
 
-# loan_status is post-origination leakage — must be dropped before any
-# bivariate/correlation analysis. It's the loan's lifecycle outcome
-# (Current, Fully Paid, Charged Off, Default, In Grace Period, etc.) which
-# is only known after origination and is partially determined by int_rate
-# itself.
+# loan_status is the current lifecycle status of the loan. The data dictionary
+# confirms it is not an application input, so it is unavailable at origination.
+# It must be excluded from application-time EDA and modeling even if its
+# marginal relationship with int_rate is modest.
 LEAKAGE_COLS_POST_ORIGINATION = ["loan_status"]
 
 # Categoricals to treat as native XGBoost categoricals (no one-hot).
@@ -131,38 +135,65 @@ EMP_LENGTH_MAP = {
 md("""
 ## 1. Schema & data quality audit
 
-Load train and test with `null_values=["NA"]` and Float64 overrides for the string-encoded numeric columns. Bridge to pandas. Verify shapes, dtype parity, ID uniqueness, target absence in test. (No `issue_d` exists, so no chronological ordering check.)
+Load raw train/test with `null_values=["NA"]` and Float64 overrides for the string-encoded numeric columns. Bridge to pandas. Verify shapes, dictionary coverage, dtype parity, ID uniqueness, target absence in test, and observed encodings. (No `issue_d` exists, so no chronological ordering check.)
 """)
 code("""
-train = pl.read_csv(
+train_raw = pl.read_csv(
     DATA_DIR / "LC_train.csv",
     schema_overrides=NUMERIC_OVERRIDES,
     null_values=["NA"],
     infer_schema_length=20000,
 ).to_pandas()
 
-test = pl.read_csv(
+test_raw = pl.read_csv(
     DATA_DIR / "LC_test.csv",
     schema_overrides=NUMERIC_OVERRIDES,
     null_values=["NA"],
     infer_schema_length=20000,
 ).to_pandas()
 
-print(f"train shape: {train.shape}")
-print(f"test  shape: {test.shape}")
+data_dict = pd.read_excel(DICTIONARY_PATH, sheet_name="LoanStats")
+data_dict["Variable Name"] = data_dict["Variable Name"].astype(str)
+dict_cols = set(data_dict["Variable Name"])
 
-assert train.shape == (100_000, 39), f"unexpected train shape: {train.shape}"
-assert test.shape == (10_000, 39),   f"unexpected test shape: {test.shape}"
-assert "int_rate" in train.columns and "int_rate" not in test.columns
-assert "ID" in test.columns and "ID" not in train.columns
-assert test["ID"].is_unique and test["ID"].nunique() == len(test)
-print("Schema assertions passed.")
+print(f"train_raw shape: {train_raw.shape}")
+print(f"test_raw  shape: {test_raw.shape}")
+print(f"dictionary rows: {len(data_dict)}")
+
+assert train_raw.shape == (100_000, 39), f"unexpected train shape: {train_raw.shape}"
+assert test_raw.shape == (10_000, 39),   f"unexpected test shape: {test_raw.shape}"
+assert "int_rate" in train_raw.columns and "int_rate" not in test_raw.columns
+assert "ID" in test_raw.columns and "ID" not in train_raw.columns
+assert test_raw["ID"].is_unique and test_raw["ID"].nunique() == len(test_raw)
+assert len(data_dict) == 39
+assert set(train_raw.columns) == dict_cols
+assert set(test_raw.columns) - dict_cols == {"ID"}
+assert dict_cols - set(test_raw.columns) == {"int_rate"}
+print("Raw schema and dictionary assertions passed.")
+
+schema_audit = pd.DataFrame({
+    "check": [
+        "train columns covered by dictionary",
+        "dictionary columns missing from train",
+        "test-only columns outside dictionary",
+        "dictionary columns absent from test",
+        "test ID unique",
+    ],
+    "result": [
+        len(set(train_raw.columns) & dict_cols),
+        sorted(dict_cols - set(train_raw.columns)),
+        sorted(set(test_raw.columns) - dict_cols),
+        sorted(dict_cols - set(test_raw.columns)),
+        bool(test_raw["ID"].is_unique),
+    ],
+})
+display(schema_audit)
 """)
 
 code("""
 # Dtype parity check between train and test (excluding the asymmetric int_rate / ID columns)
-dtype_train = train.drop(columns=["int_rate"]).dtypes
-dtype_test  = test.drop(columns=["ID"]).dtypes
+dtype_train = train_raw.drop(columns=["int_rate"]).dtypes
+dtype_test  = test_raw.drop(columns=["ID"]).dtypes
 parity = pd.DataFrame({"train": dtype_train, "test": dtype_test})
 parity["match"] = parity["train"].astype(str) == parity["test"].astype(str)
 mismatches = parity[~parity["match"]]
@@ -174,30 +205,74 @@ else:
 """)
 
 code("""
+def observed_values(series, max_items=12):
+    vals = series.dropna().astype(str).value_counts().head(max_items)
+    return ", ".join([f"{repr(k)} ({v:,})" for k, v in vals.items()])
+
+dict_lookup = data_dict.set_index("Variable Name")["Description"].to_dict()
+encoding_audit = pd.DataFrame([
+    {
+        "column": "term",
+        "dictionary_expectation": dict_lookup["term"],
+        "observed_train_encoding": observed_values(train_raw["term"]),
+        "implication": "Strip leading spaces and parse 36/60 into term_months before modeling.",
+    },
+    {
+        "column": "emp_length",
+        "dictionary_expectation": dict_lookup["emp_length"],
+        "observed_train_encoding": observed_values(train_raw["emp_length"]),
+        "implication": "Observed as LendingClub text labels; map with EMP_LENGTH_MAP and treat missing explicitly.",
+    },
+    {
+        "column": "home_ownership",
+        "dictionary_expectation": dict_lookup["home_ownership"],
+        "observed_train_encoding": observed_values(train_raw["home_ownership"]),
+        "implication": "Dictionary allows OTHER, but train/test observe only MORTGAGE/RENT/OWN; encoder should still tolerate OTHER.",
+    },
+    {
+        "column": "loan_status",
+        "dictionary_expectation": dict_lookup["loan_status"],
+        "observed_train_encoding": observed_values(train_raw["loan_status"]),
+        "implication": "Current loan status is not an application-time input; audit only, then drop.",
+    },
+])
+display(encoding_audit)
+""")
+
+md("""
+**Schema takeaway:** The raw train file exactly matches the 39-column data dictionary; test differs only by replacing `int_rate` with `ID`. From here on, all signal analysis uses `train_safe` / `test_safe`, where post-origination `loan_status` has been removed.
+""")
+
+code("""
 # *** LEAKAGE GUARD ***
-# loan_status is the loan's lifecycle outcome — known only AFTER origination,
-# and partially determined by the very target we are predicting. Including it
-# anywhere in this EDA's bivariate/correlation/feature-importance analysis
-# would corrupt every downstream finding. We drop it from both dataframes
-# right here, before any other section touches them.
+# loan_status is the loan's current lifecycle status, not a borrower/application
+# input available when the interest rate is set. We exclude it from all safe
+# bivariate/correlation/drift/feature recommendation analysis.
 #
 # We KEEP a side copy (loan_status_audit) for use only in §8 (leakage audit),
 # where we quantify the leakage explicitly. That copy is discarded after §8.
-loan_status_audit = train[["loan_status", "int_rate"]].copy()
-train = train.drop(columns=LEAKAGE_COLS_POST_ORIGINATION)
-test  = test.drop(columns=LEAKAGE_COLS_POST_ORIGINATION)
+loan_status_audit = train_raw[["loan_status", "int_rate"]].copy()
+train_safe = train_raw.drop(columns=LEAKAGE_COLS_POST_ORIGINATION).copy()
+test_safe  = test_raw.drop(columns=LEAKAGE_COLS_POST_ORIGINATION).copy()
 print(f"Dropped: {LEAKAGE_COLS_POST_ORIGINATION}")
-print(f"Train shape after leakage drop: {train.shape}")
-print(f"Test shape after leakage drop:  {test.shape}")
+print(f"train_safe shape after availability drop: {train_safe.shape}")
+print(f"test_safe shape after availability drop:  {test_safe.shape}")
+assert "loan_status" not in train_safe.columns
+assert "loan_status" not in test_safe.columns
+
+# Downstream cells use short aliases for the safe application-time frames.
+# The raw frames remain available as train_raw/test_raw for schema audits only.
+train = train_safe
+test = test_safe
 """)
 
 code("""
 # Full-row duplicate check
-n_dupes = train.duplicated().sum()
+n_dupes = train_raw.duplicated().sum()
 print(f"Full-row duplicates in train: {n_dupes}")
 
 # Confirm no date columns exist (different from the prior data/ slice)
-date_like = [c for c in train.columns if any(s in c.lower() for s in ("date", "_d", "issue", "earliest"))]
+date_like = [c for c in train_raw.columns if any(s in c.lower() for s in ("date", "_d", "issue", "earliest"))]
 print(f"Date-like columns: {date_like or 'none — no temporal structure available'}")
 """)
 
@@ -251,6 +326,13 @@ report_skew("log1p",     np.log1p(y.values))
 report_skew("sqrt",      np.sqrt(y.values))
 bc, lam = stats.boxcox(y.values + 1e-6)
 report_skew(f"box-cox(λ={lam:.2f})", bc)
+print()
+print("Recommendation: keep target-transform decisions empirical. Box-Cox/log reduce univariate skew,")
+print("but tree ensembles should compare raw vs transformed targets by cross-validation RMSE.")
+""")
+
+md("""
+**Target takeaway:** `int_rate` is moderately right-skewed but bounded and discrete. A transform can make residuals nicer for some learners, but it is not an EDA mandate; accept it only if validation RMSE improves.
 """)
 
 # ============================================================================
@@ -308,9 +390,28 @@ for col in null_table.index:
     r, p = stats.pointbiserialr(is_null, train["int_rate"])
     pb_rows.append({"column": col, "pct_missing": null_table.loc[col, "pct"],
                     "pointbiserial_r": r, "p_value": p})
-pb_df = pd.DataFrame(pb_rows).sort_values("pointbiserial_r", key=abs, ascending=False)
-print("Point-biserial correlation of missingness indicator with int_rate:")
+pb_df = pd.DataFrame(pb_rows)
+pb_df["abs_r"] = pb_df["pointbiserial_r"].abs()
+pb_df["flag_action"] = np.select(
+    [
+        (pb_df["pct_missing"] >= 5) & (pb_df["abs_r"] >= 0.02),
+        (pb_df["pct_missing"] >= 1) & (pb_df["abs_r"] >= 0.02),
+        (pb_df["pct_missing"] >= 5),
+    ],
+    [
+        "add missingness flag",
+        "consider flag; validate in CV",
+        "usually impute only; weak target association",
+    ],
+    default="impute only; tiny missingness/effect",
+)
+pb_df = pb_df.sort_values(["abs_r", "pct_missing"], ascending=False)
+print("Missingness indicator relationship with int_rate (effect-size first; p-values are secondary at n=100k):")
 display(pb_df.head(15).round(4))
+""")
+
+md("""
+**Missingness takeaway:** Use missingness flags only where missingness is both material and measurably associated with `int_rate`. In this slice, the strongest candidates are `mths_since_recent_inq` and `mths_since_last_record`; tiny-missingness fields like `dti` and `revol_util` should normally be imputed without extra flags.
 """)
 
 # ============================================================================
@@ -404,11 +505,18 @@ code("""
 fico_diff = (train["fico_range_high"] - train["fico_range_low"]).unique()
 print(f"Unique values of (fico_range_high - fico_range_low): {sorted(fico_diff.tolist())}")
 print()
-# We'll use the midpoint as the canonical FICO score going forward.
+# Add diagnostic derived fields to the safe application-time frames only.
 train["fico"] = (train["fico_range_low"] + train["fico_range_high"]) / 2.0
 test["fico"]  = (test["fico_range_low"]  + test["fico_range_high"])  / 2.0
+train["term_months"] = train["term"].astype(str).str.extract(r"(36|60)", expand=False).astype("int16")
+test["term_months"]  = test["term"].astype(str).str.extract(r"(36|60)", expand=False).astype("int16")
+train["zip3"] = train["zip_code"].astype(str).str[:3]
+test["zip3"]  = test["zip_code"].astype(str).str[:3]
+train["zip_first_digit"] = train["zip_code"].astype(str).str[0]
+test["zip_first_digit"]  = test["zip_code"].astype(str).str[0]
 print(f"FICO range: {train['fico'].min():.0f} - {train['fico'].max():.0f}")
 print(f"FICO mean:  {train['fico'].mean():.1f}, median: {train['fico'].median():.0f}, std: {train['fico'].std():.1f}")
+print("Derived fields added: fico, term_months, zip3, zip_first_digit")
 """)
 
 code("""
@@ -440,6 +548,10 @@ plt.show()
 print(f"\\nFICO is the dominant non-leakage signal: pearson r = {pr:.4f}")
 """)
 
+md("""
+**FICO takeaway:** `fico_range_low` and `fico_range_high` are effectively duplicate boundaries, so the midpoint `fico` is the clean modeling representation. Keep the midpoint and drop the raw pair before modeling to avoid duplicated attribution.
+""")
+
 # ============================================================================
 # SECTION 6 — Bivariate vs target
 # ============================================================================
@@ -449,10 +561,13 @@ md("""
 Spearman correlation handles the skew in monetary columns better than Pearson. The categorical boxplots and the `addr_state` bar chart probe what each non-numeric column buys you.
 """)
 code("""
-# Pearson + Spearman ranking — exclude only the asymmetric ID/target
-features_for_corr = [c for c in numeric_cols if c not in {"int_rate", "ID"}]
-# Add the derived FICO midpoint we computed in §5
+# Pearson + Spearman ranking. Use the FICO midpoint to avoid triple-counting
+# fico_range_low, fico_range_high, and fico as three copies of the same signal.
+CORR_EXCLUDE = {"int_rate", "ID", "fico_range_low", "fico_range_high"}
+features_for_corr = [c for c in numeric_cols if c not in CORR_EXCLUDE]
+# Add the derived FICO midpoint we computed in §5.
 features_for_corr = list(dict.fromkeys(features_for_corr + ["fico"]))
+assert "loan_status" not in features_for_corr
 
 rows = []
 for c in features_for_corr:
@@ -528,6 +643,10 @@ save_fig("06_state_bar")
 plt.show()
 """)
 
+md("""
+**Bivariate takeaway:** Once FICO is represented once, the next strongest raw numeric signals are utilization and debt-burden fields. Treat state and term as useful categorical structure, but validate their incremental value in the modeling pipeline.
+""")
+
 # ============================================================================
 # SECTION 7 — Correlation & multicollinearity
 # ============================================================================
@@ -572,9 +691,9 @@ md("""
 This dataset's leakage story is different from the prior `data/` slice:
 
 - **`grade`, `sub_grade`, `installment`** — **ABSENT**. The classic pre-origination leakage trio doesn't exist here.
-- **`loan_status`** — **PRESENT** and **already dropped** at the top of the notebook. It is the loan's lifecycle outcome (Current, Fully Paid, Charged Off, Default, In Grace Period, Late N days), which is only known after origination. We quantify the leakage here using the side copy `loan_status_audit` saved before the drop, then discard the copy.
+- **`loan_status`** — **PRESENT** and **already dropped** at the top of the notebook. It is the current status of the loan (Current, Fully Paid, Charged Off, In Grace Period, Late, Issued), which is not available as an application-time borrower feature. We quantify its association here using the side copy `loan_status_audit` saved before the drop, then discard the copy.
 
-Including `loan_status` in modeling would inflate accuracy in a way that does not generalize to application time — the moment a loan is originated, its `loan_status` is just "Current" and carries no information about the rate that was set.
+The exclusion is an availability-timing decision, not a claim that `loan_status` is the strongest predictor. Its observed association with `int_rate` is small but invalid for application-time modeling.
 """)
 code("""
 # Compute the leakage using the side copy preserved before the drop
@@ -604,7 +723,7 @@ print(f"p-value: {p:.3e}")
 print(f"Eta-squared (variance explained by loan_status): {eta_sq:.4f}")
 print()
 print(f"→ loan_status explains {eta_sq*100:.2f}% of int_rate variance.")
-print("  In an application-time model this is leakage and must be excluded.")
+print("  The effect is modest; the exclusion is because status is unavailable at application time.")
 """)
 
 code("""
@@ -613,7 +732,7 @@ fig, ax = plt.subplots(figsize=(12, 5))
 order = ls_audit.groupby("loan_status")["int_rate"].median().sort_values().index
 sns.boxplot(data=ls_audit, x="loan_status", y="int_rate", order=order,
             ax=ax, color="steelblue", fliersize=1)
-ax.set_title("int_rate by loan_status (LEAKAGE — column dropped before any other analysis)")
+ax.set_title("int_rate by loan_status (availability audit — excluded from safe analysis)")
 ax.tick_params(axis="x", rotation=30, labelsize=9)
 ax.set_xlabel("")
 save_fig("08_loan_status_leakage")
@@ -660,6 +779,26 @@ display(card_df.head(20))
 """)
 
 code("""
+title_purpose_pairs = (
+    train.groupby(["purpose", "title"], dropna=False)
+    .size()
+    .reset_index(name="n")
+    .sort_values(["purpose", "title"])
+)
+n_titles_per_purpose = title_purpose_pairs.groupby("purpose")["title"].nunique(dropna=False)
+n_purposes_per_title = title_purpose_pairs.groupby("title")["purpose"].nunique(dropna=False)
+
+print(f"Observed purpose/title pairs: {len(title_purpose_pairs)}")
+print(f"purpose unique values: {train['purpose'].nunique(dropna=False)}")
+print(f"title unique values:   {train['title'].nunique(dropna=False)}")
+print(f"max titles per purpose: {n_titles_per_purpose.max()}")
+print(f"max purposes per title: {n_purposes_per_title.max()}")
+assert len(title_purpose_pairs) == train["purpose"].nunique(dropna=False) == train["title"].nunique(dropna=False)
+assert n_titles_per_purpose.max() == 1 and n_purposes_per_title.max() == 1
+display(title_purpose_pairs)
+""")
+
+code("""
 recommendations = pd.DataFrame([
     ["emp_title",   "35k unique free text",    "DROP or hash — no clean grouping"],
     ["title",       "11 labels",               "DROP — one-to-one duplicate of purpose"],
@@ -673,6 +812,10 @@ recommendations = pd.DataFrame([
     ["application_type",    "2 levels (87/13 split)", "KEEP or validate; not constant"],
 ], columns=["column", "cardinality", "recommendation"])
 display(recommendations)
+""")
+
+md("""
+**Cardinality takeaway:** `title` is not merely semantically similar to `purpose`; it is an exact 11-pair one-to-one recoding in this train slice. Drop `title`, keep `purpose`, and avoid spending model capacity on `emp_title` unless a later text-specific experiment proves value.
 """)
 
 # ============================================================================
@@ -701,6 +844,7 @@ def psi(expected, actual, bins=10):
 
 drift_rows = []
 shared_numeric = [c for c in numeric_cols if c in test.columns and c != "ID"]
+assert "loan_status" not in shared_numeric
 for c in shared_numeric:
     a, b = train[c].dropna(), test[c].dropna()
     if len(a) < 50 or len(b) < 50:
@@ -743,6 +887,20 @@ chi_rows = []
 shared_cats = [c for c in CATEGORICAL_COLS + ["emp_length", "purpose"]
                if c in train.columns and c in test.columns]
 shared_cats = list(dict.fromkeys(shared_cats))
+assert "loan_status" not in shared_cats
+
+def cramers_v_bias_corrected(contingency):
+    chi2, p, dof, expected = stats.chi2_contingency(contingency)
+    n = contingency.sum()
+    r, k = contingency.shape
+    phi2 = chi2 / n
+    phi2_corr = max(0, phi2 - ((k - 1) * (r - 1)) / (n - 1))
+    r_corr = r - ((r - 1) ** 2) / (n - 1)
+    k_corr = k - ((k - 1) ** 2) / (n - 1)
+    denom = min((k_corr - 1), (r_corr - 1))
+    v = np.sqrt(phi2_corr / denom) if denom > 0 else np.nan
+    return chi2, p, dof, v
+
 for c in shared_cats:
     a_vc = train[c].value_counts(dropna=False)
     b_vc = test[c].value_counts(dropna=False)
@@ -752,11 +910,15 @@ for c in shared_cats:
     contingency = np.array([a_arr, b_arr])
     if contingency.sum() == 0 or (contingency.sum(axis=0) == 0).any():
         continue
-    chi2, p, dof, _ = stats.chi2_contingency(contingency)
-    chi_rows.append({"feature": c, "chi2": chi2, "p": p, "dof": dof, "n_levels": len(common)})
-chi_df = pd.DataFrame(chi_rows).set_index("feature").sort_values("chi2", ascending=False)
-print("Categorical drift (chi-square between train and test):")
+    chi2, p, dof, cramers_v = cramers_v_bias_corrected(contingency)
+    chi_rows.append({"feature": c, "cramers_v": cramers_v, "chi2": chi2, "p": p, "dof": dof, "n_levels": len(common)})
+chi_df = pd.DataFrame(chi_rows).set_index("feature").sort_values("cramers_v", ascending=False)
+print("Categorical drift between train and test (sorted by bias-corrected Cramer's V effect size):")
 display(chi_df.round(4))
+""")
+
+md("""
+**Drift takeaway:** The largest train/test shift is practical, not just statistical: test loans are smaller and have a different term mix. Monitor `loan_amnt`, `term`, and recent-credit-history fields most closely when interpreting test predictions.
 """)
 
 # ============================================================================
@@ -778,7 +940,6 @@ display(state_stats.head(5).round(3))
 
 code("""
 # Zip first-digit signal
-train["zip_first_digit"] = train["zip_code"].astype(str).str[0]
 zip_first = train.groupby("zip_first_digit")["int_rate"].agg(["mean", "count"]).sort_index()
 print(f"zip first-digit spread: {zip_first['mean'].max() - zip_first['mean'].min():.3f} pp")
 display(zip_first.round(3))
@@ -797,7 +958,6 @@ plt.show()
 
 code("""
 # Zip nests within state? Check whether each zip3 maps to a single state.
-train["zip3"] = train["zip_code"].astype(str).str[:3]
 nest = train.groupby("zip3")["addr_state"].nunique()
 print(f"zip3 unique values: {len(nest)}")
 print(f"zip3 mapping to >1 state: {(nest > 1).sum()}")
@@ -859,7 +1019,7 @@ print(train[STRING_NUMERIC_COLS].isna().sum().to_string())
 md("""
 ## 13. Feature engineering hypotheses (catalog, no implementation)
 
-What the EDA suggests building. Differences from the prior catalog: FICO becomes the primary main effect, `loan_status` does NOT appear (dropped as leakage), date-derived features are impossible (no `issue_d` / `earliest_cr_line`).
+What the EDA suggests building. Differences from the prior catalog: FICO becomes the primary main effect, `loan_status` does NOT appear (unavailable at application time), date-derived features are impossible (no `issue_d` / `earliest_cr_line`).
 """)
 code("""
 fe_hypotheses = pd.DataFrame([
@@ -870,14 +1030,14 @@ fe_hypotheses = pd.DataFrame([
     ["ratio: loan_to_income",              "Underwriting signal (§12)",                   "loan_to_income"],
     ["ratio: revol_util × loan_amnt",      "Bivariate non-linear (§6, §7)",               "interaction term"],
     ["interaction: fico × revol_util",     "Credit quality × utilization (§5, §6)",       "interaction term"],
-    ["flag: is_missing_<col> for ~30%+ NA cols",
-                                           "Point-biserial in §3 if non-trivial",         "binary flags"],
+    ["flag: selected is_missing_<col>",
+                                           "Only when missingness rate and effect size justify it (§3)", "validate binary flags in CV"],
     ["flag: zero-inflated counters",       "pub_rec, delinq_2yrs, chargeoff/collection counters, tot_coll_amt (§4)",
                                                                                           "*_flag binaries"],
     ["bin: dti_bucket, loan_amnt_bucket",  "Discrete tree splits (§6)",                   "categorical bins"],
     ["addr_state native categorical",      "0.4-3pp main effect + interactions (§6, §11)", "pl.Categorical"],
     ["DROP: emp_title, title",             "emp_title high-cardinality; title duplicates purpose (§9)", "in DROP_COLS"],
-    ["DROP: loan_status",                  "**LEAKAGE** (§8) — done at load",             "already removed"],
+    ["DROP: loan_status",                  "Unavailable at application time (§8)",         "already removed"],
     ["NOT POSSIBLE: temporal features",    "No issue_d in this dataset (§1)",             "—"],
 ], columns=["hypothesis", "motivation (EDA section)", "implementation"])
 display(fe_hypotheses)
@@ -891,16 +1051,16 @@ md("""
 
 ### Top findings
 
-1. **FICO is present and dominates non-leakage signal** — the prior `data/` slice was missing this column and the modeling ceiling was R² ≈ 0.52 as a result. FICO Spearman with `int_rate` is strongly negative; this dataset should support a substantially higher ceiling (§5).
-2. **`loan_status` is post-origination leakage** — it explains a sizable fraction of `int_rate` variance via ANOVA, but in production the `loan_status` of a brand-new loan is always "Current" and carries zero predictive information. Dropped immediately on load (§8).
-3. **`grade`, `sub_grade`, `installment` are absent** — the obvious pre-origination leakage trio is not in this slice. No need to drop them; the audit code from the prior notebook does not apply.
-4. **No date columns** — neither `issue_d` nor `earliest_cr_line` exists. Temporal validation is impossible on this slice; use a random hold-out and accept that out-of-time generalization cannot be measured (§1, §5).
-5. **Several numerics were string-encoded with literal `"NA"`** — `dti`, `revol_util`, `all_util`, `mo_sin_old_il_acct`, and four `mths_since_*` columns. Cast at load with `null_values=["NA"]` and Float64 overrides (§1, §12).
-6. **`tot_cur_bal` dtype divergence between train and test** — Float64 vs Int64. Forced Float64 in both via `NUMERIC_OVERRIDES` (§1).
-7. **Missingness clusters** — without dates we can't probe the temporal mechanism, but co-occurrence in `mths_since_*` indicates structural absence (whole-population zero credit events) (§3).
-8. **Multicollinearity is mild** — only a few numeric pairs above |r|>0.7; `fico_range_low ↔ fico_range_high` is a near-duplicate by construction (diff is 4 for 99,986 rows and 5 for 14 rows); use the midpoint instead (§5, §7).
-9. **State mean-rate spread** — non-trivial; deserves to be a native XGBoost categorical (§11).
-10. **`annual_inc` has the usual self-reported long tail** — XGBoost handles via splits; consider winsorize for any linear baseline (§12).
+1. **The data dictionary fully reconciles to train** — all 39 train columns are documented; test differs only by replacing `int_rate` with `ID` (§1).
+2. **FICO is present and dominates non-leakage signal** — the prior `data/` slice was missing this column and the modeling ceiling was R² ≈ 0.52 as a result. FICO Spearman with `int_rate` is strongly negative; this dataset should support a substantially higher ceiling (§5).
+3. **`loan_status` is unavailable at application time** — its marginal ANOVA effect is modest (eta-squared ≈ 0.44%), but it is current loan status rather than a borrower input. Dropped immediately on load (§8).
+4. **`grade`, `sub_grade`, `installment` are absent** — the obvious pre-origination leakage trio is not in this slice. No need to drop them; the audit code from the prior notebook does not apply.
+5. **No date columns** — neither `issue_d` nor `earliest_cr_line` exists. Temporal validation is impossible on this slice; use a random hold-out and accept that out-of-time generalization cannot be measured (§1, §5).
+6. **Several numerics were string-encoded with literal `"NA"`** — `dti`, `revol_util`, `all_util`, `mo_sin_old_il_acct`, and four `mths_since_*` columns. Cast at load with `null_values=["NA"]` and Float64 overrides (§1, §12).
+7. **`tot_cur_bal` dtype divergence between train and test** — Float64 vs Int64. Forced Float64 in both via `NUMERIC_OVERRIDES` (§1).
+8. **Missingness flags should be selective** — `mths_since_recent_inq` and `mths_since_last_record` are the clearest candidates; low-missingness fields generally need imputation only (§3).
+9. **Multicollinearity is mild** — only a few numeric pairs above |r|>0.7; `fico_range_low ↔ fico_range_high` is a near-duplicate by construction (diff is 4 for 99,986 rows and 5 for 14 rows); use the midpoint instead (§5, §7).
+10. **State mean-rate spread is non-trivial** — but train/test drift is stronger for `loan_amnt`, `term`, and recent-credit-history fields (§10, §11).
 
 ### Pre-modeling checklist
 
@@ -910,7 +1070,7 @@ md("""
 - Use `fico = (fico_range_low + fico_range_high) / 2` and drop the two raw columns to avoid the near-duplicate pair.
 - Apply `log1p` to `annual_inc`, `revol_bal`, `tot_cur_bal`, `tot_coll_amt`.
 - Add zero-inflated flags for `pub_rec`, `delinq_2yrs`, `chargeoff_within_12_mths`, `collections_12_mths_ex_med`, and `tot_coll_amt`.
-- Add `is_missing_<col>` flags for columns whose missingness has non-zero point-biserial correlation with the target (§3).
+- Add `is_missing_<col>` flags only for material missingness with non-trivial effect size, then keep only if CV improves (§3).
 - Compute median imputation on train only; apply to val and test.
 - Native XGBoost categoricals: `addr_state`, `home_ownership`, `verification_status`, `purpose`, `term`.
 - **Validation: random split** (e.g. 80/20). No temporal column exists.

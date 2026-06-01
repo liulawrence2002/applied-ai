@@ -105,7 +105,9 @@ def engineer(df: pd.DataFrame) -> pd.DataFrame:
     out["dti_x_fico"] = out["dti"] * out["fico"]
     out["acc_open_ratio"] = out["open_acc"] / out["total_acc"].replace(0, np.nan)
     out["dti_band"] = pd.cut(out["dti"], bins=[-np.inf, 10, 20, 30, 40, np.inf], labels=False).astype("Int64")
-    out["fico_band"] = pd.cut(out["fico"], bins=[-np.inf, 660, 690, 720, 760, np.inf], labels=False).astype("Int64")
+    out["fico_band"] = pd.cut(out["fico"], bins=[-np.inf, 660, 680, 700, 720, 740, 760, 780, np.inf], labels=False).astype("Int64")
+    out["fico_x_term"] = out["fico"] * out["term_months"].astype("float64")
+    out["fico_x_dti_band"] = out["fico"] * out["dti_band"].astype("float64")
     out["derog_score"] = (
         out["delinq_2yrs"].fillna(0) * 8
         + out["pub_rec"].fillna(0) * 13
@@ -127,6 +129,7 @@ def engineer(df: pd.DataFrame) -> pd.DataFrame:
     out["zip3"] = out["zip_code"].astype("string").str.extract(r"(\d{3})", expand=False)
     if "emp_title" in out.columns:
         out["emp_title"] = out["emp_title"].astype("string").str.lower().str.strip()
+    out["fico_range_width"] = (out["fico_range_high"] - out["fico_range_low"]).astype("float64")
     drop = ["fico_range_low", "fico_range_high", "term", "emp_length", "title", "zip_code"]
     return out.drop(columns=[c for c in drop if c in out.columns])
 
